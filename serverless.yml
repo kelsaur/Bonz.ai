@@ -1,0 +1,20 @@
+org: ${env:AWS_ORG}
+service: ${env:AWS_SERVICE}
+
+plugins:
+  - serverless-dotenv-plugin
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: eu-north-1
+  iam:
+    role: ${env:AWS_IAM_ROLE}
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - httpApi:
+          path: /
+          method: get
