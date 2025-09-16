@@ -13,20 +13,31 @@ export const handler = async (event) => {
 		});
 
 		const result = await client.send(command);
+		const totalBookings = result.Count;
 
-		//!!! const bookings = bookingid, no of rooms, no of guests, room type(s),
-		//!!! checkin, checkout, name
+		const bookings = result.Items.map((item) => ({
+			bookingId: item.bookingId.S,
+			guestName: item.guestName.S,
+			checkIn: item.checkIn.S,
+			checkOut: item.checkOut.S,
+			guestCount: parseInt(item.guestCount.N),
+			roomType: JSON.parse(item.roomType.S),
+			totalPrice: parseInt(item.totalPrice.N),
+		}));
 
 		if (bookings.length === 0) {
 			return {
 				statusCode: 200,
-				body: JSON.stringify("There are currently no bookings."),
+				body: JSON.stringify({ message: "There are currently no bookings." }),
 			};
 		}
 
 		return {
 			statusCode: 200,
-			body: JSON.stringify({ bookings }),
+			body: JSON.stringify({
+				message: `There are currently ${totalBookings} bookings in total: `,
+				bookings,
+			}),
 		};
 	} catch (error) {
 		return {
