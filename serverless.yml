@@ -12,9 +12,61 @@ provider:
     role: ${env:AWS_IAM_ROLE}
 
 functions:
-  hello:
-    handler: handler.hello
+  createBooking:
+    handler: functions/createBooking/index.handler
     events:
       - httpApi:
-          path: /
+          path: /bookings
+          method: post
+
+  deleteBooking:
+    handler: functions/deleteBooking/index.handler
+    events:
+      - httpApi:
+          path: /bookings/{bookingId}
+          method: delete 
+
+  getBookingById:
+    handler: functions/getBookingById/index.handler
+    events:
+      - httpApi:
+          path: /bookings/{bookingId}
           method: get
+
+  getAllBookings:
+    handler: functions/getAllBookings/index.handler
+    events:
+      - httpApi:
+          path: /bookings
+          method: get
+
+  getRooms:
+    handler: functions/getRooms/index.handler
+    events:
+      - httpApi:
+          path: /rooms
+          method: get
+
+  updateBooking:
+    handler: functions/updateBooking/index.handler
+    events:
+      - httpApi:
+          path: /bookings/{bookingId}
+          method: put
+
+  Resources:
+    BookLibraryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: HotelBooking
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S # S står för String som datatyp
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH # HASH = partition key
+          - AttributeName: sk
+            KeyType: RANGE # RANGE = sort key
+        BillingMode: PAY_PER_REQUEST
