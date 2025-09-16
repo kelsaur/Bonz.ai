@@ -10,6 +10,12 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.645.0",
+    "@aws-sdk/lib-dynamodb": "^3.645.0", 
+    "@aws-sdk/util-dynamodb": "^3.645.0",
+    "uuid": "^9.0.0"
+  },
   "devDependencies": {
     "serverless-dotenv-plugin": "^6.0.0"
   }
