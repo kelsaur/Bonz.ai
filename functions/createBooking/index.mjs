@@ -23,6 +23,21 @@ export const handler = async (event) => {
             }
         }
 
+        const guestValidation = validateGuestCapacity(body.roomType, body.guestCount);
+        if (!guestValidation.valid) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({
+                    success: false,
+                    message: guestValidation.message
+                })
+            };
+        }
+
         const roomAvailability = await checkRoomAvailability(body.roomType, body.numberOfRooms);
         
         if (!roomAvailability.available) {
@@ -94,6 +109,35 @@ export const handler = async (event) => {
         };
     }
 };
+
+function validateGuestCapacity(roomType, guestCount) {
+    const roomCapacities = {
+        'enkel': 1,
+        'dubbel': 2,
+        'svit': 3
+    };
+
+    const maxCapacity = roomCapacities[roomType.toLowerCase()];
+    
+    if (!maxCapacity) {
+        return {
+            valid: false,
+            message: `Unknown room type: ${roomType}`
+        };
+    }
+
+    if (guestCount > maxCapacity) {
+        return {
+            valid: false,
+            message: `Too many guests for ${roomType} room. Maximum capacity: ${maxCapacity}, requested: ${guestCount}`
+        };
+    }
+
+    return {
+        valid: true,
+        message: 'Guest count is valid'
+    };
+}
 
 async function updateBookedRooms(roomType, numberOfRooms) {
     try {

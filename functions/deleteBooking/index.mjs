@@ -46,6 +46,12 @@ export const handler = async (event) => {
         const booking = getResult.Item;
         const roomType = booking.roomType;
         const numberOfRooms = booking.numberOfRooms;
+        const guestCount = booking.guestCount;
+
+        const guestValidation = validateGuestCapacity(roomType, guestCount);
+        if (!guestValidation.valid) {
+            console.warn(`Deleting invalid booking: ${guestValidation.message}`);
+        }
 
         const deleteCommand = new DeleteCommand({
             TableName: TABLE_NAME,
@@ -59,8 +65,6 @@ export const handler = async (event) => {
 
         await decreaseBookedRooms(roomType, numberOfRooms);
 
-        const deletedBooking = getResult.Item;
-
         return {
             statusCode: 200,
             headers: {
@@ -70,7 +74,8 @@ export const handler = async (event) => {
             body: JSON.stringify({
                 success: true,
                 message: 'Booking deleted successfully',
-                deletedBooking: deletedBooking
+                deletedBooking: booking,
+                guestValidation: guestValidation.valid ? 'Valid booking' : `Invalid booking: ${guestValidation.message}`
             })
         };
 
@@ -92,6 +97,35 @@ export const handler = async (event) => {
     }
 };
 
+function validateGuestCapacity(roomType, guestCount) {
+    const roomCapacities = {
+        'enkel': 1,
+        'dubbel': 2,
+        'svit': 3
+    };
+
+    const maxCapacity = roomCapacities[roomType.toLowerCase()];
+    
+    if (!maxCapacity) {
+        return {
+            valid: false,
+            message: `Unknown room type: ${roomType}`
+        };
+    }
+
+    if (guestCount > maxCapacity) {
+        return {
+            valid: false,
+            message: `Too many guests for ${roomType} room. Maximum capacity: ${maxCapacity}, actual: ${guestCount}`
+        };
+    }
+
+    return {
+        valid: true,
+        message: 'Guest count is valid'
+    };
+}
+
 async function decreaseBookedRooms(roomType, numberOfRooms) {
     try {
         const updateCommand = new UpdateCommand({
@@ -105,7 +139,7 @@ async function decreaseBookedRooms(roomType, numberOfRooms) {
                 "#bookedRooms": "BOOKED ROOMS"
             },
             ExpressionAttributeValues: {
-                ":decrement": -numberOfRooms
+                ":decrement": -numberOfRooms 
             }
         });
 
