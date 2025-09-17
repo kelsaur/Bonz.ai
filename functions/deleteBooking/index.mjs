@@ -20,10 +20,10 @@ export const handler = async (event) => {
         }
 
         const getCommand = new GetCommand({
-            TableName: TABLE_NAME,
-            Key: {
-                PK: bookingId,
-                SK: `BOOKING#${bookingId}`
+        TableName: TABLE_NAME,
+        Key: {
+            PK: "BOOKING#",
+            SK: `ID#${bookingId}`
             }
         });
 
@@ -46,10 +46,11 @@ export const handler = async (event) => {
         const deleteCommand = new DeleteCommand({
             TableName: TABLE_NAME,
             Key: {
-                PK: bookingId,
-                SK: `BOOKING#${bookingId}`
-            }
+                PK: "BOOKING#",
+                SK: `ID#${bookingId}`
+                }
         });
+
 
         await docClient.send(deleteCommand);
 

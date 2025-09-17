@@ -24,10 +24,10 @@ export const handler = async (event) => {
         }
 
         const bookingId = uuidv4();
-        
-        const booking = {
-            PK: bookingId,
-            SK: `BOOKING#${bookingId}`,
+
+            const booking = {
+            PK: "BOOKING#",
+            SK: `ID#${bookingId}`,
             guestName: body.guestName,
             guestEmail: body.guestEmail,
             guestCount: body.guestCount,
