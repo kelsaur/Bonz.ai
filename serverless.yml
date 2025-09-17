@@ -10,6 +10,9 @@ provider:
   region: eu-north-1
   iam:
     role: ${env:AWS_IAM_ROLE}
+  environment:
+    HOTEL_BOOKING_TABLE: HotelBooking
+
 
 iamRoleStatements:
   - Effect: Allow
@@ -66,19 +69,19 @@ functions:
           path: /bookings/{bookingId}
           method: put
 
-  # Resources:
-  #   HotelBooking:
-  #     Type: AWS::DynamoDB::Table
-  #     Properties:
-  #       TableName: HotelBooking
-  #       AttributeDefinitions:
-  #         - AttributeName: pk
-  #           AttributeType: S 
-  #         - AttributeName: sk
-  #           AttributeType: S
-  #       KeySchema:
-  #         - AttributeName: pk
-  #           KeyType: HASH # HASH = partition key
-  #         - AttributeName: sk
-  #           KeyType: RANGE # RANGE = sort key
-  #       BillingMode: PAY_PER_REQUEST
+  Resources:
+    BookLibraryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: HotelBooking
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S # S står för String som datatyp
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH # HASH = partition key
+          - AttributeName: sk
+            KeyType: RANGE # RANGE = sort key
+        BillingMode: PAY_PER_REQUEST
