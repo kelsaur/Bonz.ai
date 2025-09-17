@@ -1,4 +1,4 @@
-import { client } from "../../services/db.mjs";
+import { docClient } from "../../services/db.mjs";
 import { QueryCommand } from "@aws-sdk/client-dynamodb";
 
 export const handler = async (event) => {
@@ -12,7 +12,7 @@ export const handler = async (event) => {
 			},
 		});
 
-		const result = await client.send(command);
+		const result = await docClient.send(command);
 		const totalBookings = result.Count;
 
 		const bookings = result.Items.map((item) => ({
