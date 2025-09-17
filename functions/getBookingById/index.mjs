@@ -1,9 +1,10 @@
 import { docClient } from "../../services/db.mjs";
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
 
-export const getBookingById = async (event) => {
+export const handler = async (event) => {
 	try {
-		const bookingId = event.pathParameters.id;
+		const bookingId = event.pathParameters.bookingId;
+		console.log("Received booking ID: ", bookingId);
 
 		if (!bookingId) {
 			return {
@@ -15,12 +16,13 @@ export const getBookingById = async (event) => {
 		const command = new GetCommand({
 			TableName: "HotelBooking",
 			Key: {
-				pk: { S: `BOOKING#` },
-				sk: { S: `ID${bookingId}` },
+				PK: `BOOKING#`,
+				SK: `ID#${bookingId}`,
 			},
 		});
 
 		const result = await docClient.send(command);
+		console.log("Fetched result: ", result);
 
 		if (!result.Item) {
 			return {
