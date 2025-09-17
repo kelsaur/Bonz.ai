@@ -20,7 +20,6 @@ export const handler = async (event) => {
 
 		const result = await docClient.send(command);
 		const bookingsData = result.Items || []; //in case of no bookings returns empty array instead of undefined
-		const totalBookings = result.Count ?? bookingsData.length;
 
 		if (bookingsData.length === 0) {
 			return {
@@ -30,13 +29,17 @@ export const handler = async (event) => {
 			};
 		}
 
+		const totalRoomsBooked = bookingsData.reduce((sum, item) => {
+			return sum + (item.totalNumberOfRooms || 0);
+		}, 0);
+
 		const bookings = bookingsData.map((item) => ({
-			"Booking ID": item.bookingId,
+			"Booking ID": item.bookingId || item.SK.replace("ID#", ""),
 			"Guest Name": item.guestName,
 			"Guest Email": item.guestEmail,
-			"Number Of Rooms": item.numberOfRooms,
+			"Number Of Rooms": item.totalNumberOfRooms,
 			"Number Of Guests": item.guestCount,
-			"Room Type": item.roomType,
+			"Room Types": item.roomTypes,
 			"Check In": formatDate(item.checkIn),
 			"Check Out": formatDate(item.checkOut),
 			"Booking Status": item.status,
@@ -47,8 +50,9 @@ export const handler = async (event) => {
 			statusCode: 200,
 			headers,
 			body: JSON.stringify({
-				message: `There are currently ${totalBookings} bookings in total: `,
-				bookings,
+				"Bookings information": `There are currently ${bookings.length} bookings in total.`,
+				"Rooms booked": `There are currently ${totalRoomsBooked} rooms booked in total.`,
+				"All Current Bookings": bookings,
 			}),
 		};
 	} catch (error) {
