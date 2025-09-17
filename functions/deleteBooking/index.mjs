@@ -1,5 +1,5 @@
-import { DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb'; // Importera från lib-dynamodb
-import { docClient, TABLE_NAME } from '../../services/db.mjs'; // Använd docClient
+import { DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { docClient, TABLE_NAME } from '../../services/db.mjs';
 
 export const handler = async (event) => {
     try {
@@ -21,13 +21,13 @@ export const handler = async (event) => {
 
         const getCommand = new GetCommand({
             TableName: TABLE_NAME,
-            Key: { // Ingen marshalling behövs här
+            Key: {
                 PK: bookingId,
                 SK: `BOOKING#${bookingId}`
             }
         });
 
-        const getResult = await docClient.send(getCommand); // Använd docClient
+        const getResult = await docClient.send(getCommand);
         
         if (!getResult.Item) {
             return {
@@ -45,15 +45,15 @@ export const handler = async (event) => {
 
         const deleteCommand = new DeleteCommand({
             TableName: TABLE_NAME,
-            Key: { // Ingen marshalling behövs här
+            Key: {
                 PK: bookingId,
                 SK: `BOOKING#${bookingId}`
             }
         });
 
-        await docClient.send(deleteCommand); // Använd docClient
+        await docClient.send(deleteCommand);
 
-        const deletedBooking = getResult.Item; // Item är redan unmarshalled
+        const deletedBooking = getResult.Item;
 
         return {
             statusCode: 200,

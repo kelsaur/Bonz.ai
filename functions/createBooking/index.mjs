@@ -1,5 +1,5 @@
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid'; // Se till att uuid är installerat och importerat
+import { v4 as uuidv4 } from 'uuid';
 import { docClient, TABLE_NAME } from '../../services/db.mjs';
 
 export const handler = async (event) => {
@@ -39,12 +39,9 @@ export const handler = async (event) => {
             status: 'confirmed'
         };
 
-        // NYTT: Logga objektet innan det skickas till DynamoDB
-        console.log('Attempting to put item into DynamoDB:', JSON.stringify(booking, null, 2));
-
         const command = new PutCommand({
             TableName: TABLE_NAME,
-            Item: booking
+            Item: booking 
         });
 
         await docClient.send(command);
@@ -58,10 +55,7 @@ export const handler = async (event) => {
             body: JSON.stringify({
                 success: true,
                 message: 'Booking created successfully',
-                booking: {
-                    bookingId: bookingId,
-                    ...booking
-                }
+                booking: booking
             })
         };
 
