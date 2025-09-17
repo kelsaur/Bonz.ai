@@ -1,6 +1,11 @@
 import { UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '../../services/db.mjs';
 
+const CORS_HEADERS={
+    'Content-Type':'application/json',
+    'Access-Control-Allow-Origin':'*'
+};
+
 export const handler = async (event) => {
     try {
         const body=JSON.parse(event.body);
@@ -8,13 +13,11 @@ export const handler = async (event) => {
         if (!body.bookingId){
             return {
                 statusCode:400,
-                headers:{
-                    'Content-Type':'application/json',
-                    'Access-Control-Allow-Origin':'*'
-                }, body: JSON.stringify({
+                headers:CORS_HEADERS,
+                body: JSON.stringify({
                     success:false,
                     message:"Missing required field:bookingId"
-                })
+                }),
             };
         }
 
@@ -26,7 +29,7 @@ export const handler = async (event) => {
             Key:{
                 PK:"BOOKING#",
                 SK:`ID#${bookingId}`
-            }
+            },
         }));
 
         // if booking not found
@@ -39,95 +42,85 @@ export const handler = async (event) => {
                 },body:JSON.stringify({
                     success:false,
                     message:"Booking not found"
-                })
+                }),
             };
         }
 
         const oldBooking=oldBookingResult.Item;
 
-        // prepare new booking values
-        const newRoomType=body.roomType || oldBooking.roomType;
-        const newRooms=body.numberOfRooms !== undefined ? body.numberOfRooms:oldBooking.numberOfRooms;
+        // prepare new booking details
+        const newRoomTypes=body.roomTypes || oldBooking.roomTypes;
         const newGuests=body.guestCount || oldBooking.guestCount;
 
-        // get room item using PK
-        const roomPk=`ROOM#${newRoomType.toUpperCase()}`;
-        const roomResult=await docClient.send(new GetCommand({
-            TableName: TABLE_NAME,
-            Key:{
-                PK:roomPk, SK: "META"
+
+        // validate each new room type against capacity and availability
+        for (const newRoom of newRoomTypes){
+            const roomResult=await docClient.send(new GetCommand({
+                TableName:TABLE_NAME,
+                Key:{
+                    PK:`ROOM#${newRoom.type.toUpperCase()}`,
+                    SK:"META"
+                },
+            }));
+
+            if (!roomResult.Item){
+                return{
+                    statusCode:400,
+                    headers:CORS_HEADERS,
+                    body:JSON.stringify({
+                        success:false,
+                        message:`Invalid room type: ${newRoom.type}`
+                    }),
+                };
             }
-        }));
 
-        // if room not found
-        if (!roomResult.Item){
-            return{
-                statusCode: 400,
-                headers:{
-                    'Content-Type':'application/json',
-                    'Access-Control-Allow-Origin':'*'
-                },body:JSON.stringify({
-                    success:false,
-                    message:"Invalid room type"
-                })
-            };
-        }
+            const roomItem=roomResult.Item;
 
-        const roomItem=roomResult.Item;
-
-        // check if enough rooms are available
-        if (newGuests >newRooms * roomItem.capacity){
-            return{
-                statusCode:400,
-                 headers:{
-                    'Content-Type':'application/json',
-                    'Access-Control-Allow-Origin':'*'
-                },body:JSON.stringify({
-                    success:false,
-                    message:`Guest number ${newGuests} exceeds capacity for ${newRooms} ${newRoomType} room(s)`
-                })
-            };
-        }
-
-        // Room AVAILABILITY VALIDATION 
-        let deltaRooms=0;
-        if (newRoomType === oldBooking.roomType){
-            deltaRooms=newRooms - oldBooking.numberOfRooms;
-        } else{
-            deltaRooms=newRooms; 
-            // change room type to new room type
-        }
-
-        const projectedBooked=roomItem.roomBooked+deltaRooms;
-        if (projectedBooked > roomItem.totalRooms){
-            return{
-                statusCode:400,
-                headers:{
-                    'Content-Type':'application/json',
-                    'Access-Control-Allow-Origin':'*'
-                },body:JSON.stringify({
-                    success:false,
-                    message:`Not enough ${newRoomType} rooms available`
-                })
-            };
-        }
-
-        // update booking item
-        let updateExpression='SET ';
-        const expressionAttributeNames={};
-        const expressionAttributeValues={};
-        let prefix='';
-
-        const updatableFields=['guestName','guestEmail','guestCount','roomType','numberOfRooms','checkIn','checkOut','status'];
-
-        updatableFields.forEach(field=>{
-            if(body[field]!==undefined){
-                updateExpression+=`${prefix}#${field}=:${field}`;
-                expressionAttributeNames[`#${field}`]=field;
-                expressionAttributeValues[`:${field}`]=body[field];
-                prefix=', ';
+            // check if capacity
+            if (newRoom.guests>newRoom.rooms*roomItem.capacity){
+                return{
+                    statusCode:400,
+                    headers:CORS_HEADERS,
+                    body:JSON.stringify({
+                        success:false,
+                        message:`Guest number ${newRoom.guests} exceeds capacity for ${newRoom.rooms} ${newRoom.type} room(s)`
+                    }),
+                };
             }
-        });
+
+            // availability check
+            const oldRoom=oldBooking.roomTypes.find((r)=>r.type===newRoom.type);
+            const oldRooms=oldRoom ? oldRoom.rooms :0;
+            const deltaRooms=newRoom.rooms-oldRooms;
+
+            const projectedBooked=roomItem['BOOKED ROOMS']+deltaRooms;
+            if (projectedBooked<0 || projectedBooked>roomItem['TOTAL ROOMS'])
+                return{
+                    statusCode:400,
+                    headers:CORS_HEADERS,
+                    body:JSON.stringify({
+                        success:false,
+                        message:`Not enough ${newRoom.type} rooms available`
+                    }),
+                };
+            }
+        
+        // UPDATE BOOKING ITEM
+       let updateExpression='SET ';
+       const expressionAttributeNames={};
+       const expressionAttributeValues={};
+       let prefix='';
+
+       const updatableFields=['guestName','guestEmail','guestCount','roomTypes','checkIn','checkOut','status'];
+
+       updatableFields.forEach(field=>{
+           if(body[field]!==undefined){
+               updateExpression+=`${prefix}#${field}=:${field}`;
+               expressionAttributeNames[`#${field}`]=field;
+               expressionAttributeValues[`:${field}`]=body[field];
+               prefix=', ';
+           }
+       });
 
         // update updatedAt field
         updateExpression+=`${prefix}#updatedAt=:updatedAt`;
@@ -148,81 +141,75 @@ export const handler = async (event) => {
         }))
         
 
-        // update roomBooked counters
-        if (oldBooking.roomType !==newRoomType){
-            // decrement old room type booked counter
-            await docClient.send(new UpdateCommand({
-                TableName:TABLE_NAME,
-                Key:{
-                    PK:`ROOM#${oldBooking.roomType.toUpperCase()}`,
-                    SK:"META"
-                },
-                UpdateExpression: "SET #roomBooked = #roomBooked - :num",
-                ExpressionAttributeNames:{
-                    "#roomBooked": "BOOKED ROOMS"
-                },               
-                ExpressionAttributeValues:{
-                    ":num":oldBooking.numberOfRooms
-                }
-            }));
+        // update bookedRooms counters
+        for (const oldRoom of oldBooking.roomTypes){
+            const newRoom=newRoomTypes.find((r)=>r.type===oldRoom.type);
+            const newRooms=newRoom ? newRoom.rooms :0;
+            const deltaRooms=newRooms-oldRoom.rooms;
 
-            // increment new room type booked counter
-            await docClient.send(new UpdateCommand({
-                TableName:TABLE_NAME,
-                Key:{
-                    PK:`ROOM#${newRoomType.toUpperCase()}`,
-                    SK: "META"
-                },
-                UpdateExpression:"SET #roomBooked=#roomBooked+:num",
-                ExpressionAttributeNames:{
-                    "#roomBooked":"BOOKED ROOMS"
-                },
-                ExpressionAttributeValues:{
-                    ":num": newRooms
-                }
-            }));
-        } else if (deltaRooms !==0){
-            // same type of rooms, just update the counter
-            await docClient.send (new UpdateCommand({
-                TableName:TABLE_NAME,
-                Key:{
-                    PK: `ROOM#${newRoomType.toUpperCase()}`,
-                    SK: "META"
-                },
-                UpdateExpression:"SET #roomBooked=#roomBooked+:num",
-                ExpressionAttributeNames:{
-                    "#roomBooked":"BOOKED ROOMS"
-                },
-                ExpressionAttributeValues:{
-                    ":num":deltaRooms
-                }
-            }));
+            if (deltaRooms!==0){
+                await docClient.send(new UpdateCommand({
+                    TableName:TABLE_NAME,
+                    Key:{
+                        PK:`ROOM#${oldRoom.type.toUpperCase()}`,
+                        SK:"META"
+                    },
+                    UpdateExpression:"SET #bookedRooms=#bookedRooms+:num",
+                    ExpressionAttributeNames:{
+                        "#bookedRooms":"BOOKED ROOMS",
+                        "#totalRooms": "TOTAL ROOMS",
+                    },
+                    ExpressionAttributeValues:{
+                        ":num":deltaRooms,
+                        ":zero":0,
+                    },
+                }));
+            }
         }
 
+        // handle any new room types added in the update
+        for (const newRoom of newRoomTypes){
+            const oldRoom=oldBooking.roomTypes.find((r)=>r.type===newRoom.type);
+            if (!oldRoom){
+                await docClient.send(new UpdateCommand({
+                    TableName:TABLE_NAME,
+                    Key:{
+                        PK:`ROOM#${newRoom.type.toUpperCase()}`,
+                        SK:"META"
+                    },
+                    UpdateExpression:"SET #bookedRooms=#bookedRooms+:num",
+                    ExpressionAttributeNames:{
+                        "#bookedRooms":"BOOKED ROOMS",
+                        "#totalRooms": "TOTAL ROOMS",
+                    },
+                    ExpressionAttributeValues:{
+                        ":num":newRoom.rooms,
+                        ":zero":0,
+                    },
+                }));
+            }
+        }
+  
         // return results
         return{
             statusCode:200,
-            headers:{
-                'Content-Type':'application/json',
-                'Access-Control-Allow-Origin':'*'
-            }, body:JSON.stringify({
-            success:true,
-            message:"Booking updated successfully",
-            booking:updatedBooking.Attributes
-        })
-    };
-} catch (error){
-    console.error("Error updating booking:",error);
-    return{
-        statusCode:500,
-        headers:{
-            'Content-Type':'application/json',
-            'Access-Control-Allow-Origin':'*'
-        },body:JSON.stringify({
-            success:false,
-            message:"Error updating booking",
+            headers:CORS_HEADERS,
+            body:JSON.stringify({
+                success:true,
+                message:"Booking updated successfully",
+                booking:updatedBooking.Attributes
+            }),
+        };
+    } catch (error){
+        console.error("Error updating booking:",error);
+        return{
+            statusCode:500,
+            headers:CORS_HEADERS,
+            body:JSON.stringify({
+                success:false,
+                message:"Error updating booking",
             error: error.message
-        })
-    };
-}
+            }),
+        };
+    }
 };
