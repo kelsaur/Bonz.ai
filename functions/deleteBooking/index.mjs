@@ -1,4 +1,4 @@
-import { DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '../../services/db.mjs';
 
 export const handler = async (event) => {
@@ -20,10 +20,10 @@ export const handler = async (event) => {
         }
 
         const getCommand = new GetCommand({
-        TableName: TABLE_NAME,
-        Key: {
-            PK: "BOOKING#",
-            SK: `ID#${bookingId}`
+            TableName: TABLE_NAME,
+            Key: {
+                PK: "BOOKING#",
+                SK: `ID#${bookingId}`
             }
         });
 
@@ -43,16 +43,21 @@ export const handler = async (event) => {
             };
         }
 
+        const booking = getResult.Item;
+        const roomType = booking.roomType;
+        const numberOfRooms = booking.numberOfRooms;
+
         const deleteCommand = new DeleteCommand({
             TableName: TABLE_NAME,
             Key: {
                 PK: "BOOKING#",
                 SK: `ID#${bookingId}`
-                }
+            }
         });
 
-
         await docClient.send(deleteCommand);
+
+        await decreaseBookedRooms(roomType, numberOfRooms);
 
         const deletedBooking = getResult.Item;
 
@@ -86,3 +91,29 @@ export const handler = async (event) => {
         };
     }
 };
+
+async function decreaseBookedRooms(roomType, numberOfRooms) {
+    try {
+        const updateCommand = new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `ROOM#${roomType.toUpperCase()}`,
+                SK: "META"
+            },
+            UpdateExpression: "ADD #bookedRooms :decrement",
+            ExpressionAttributeNames: {
+                "#bookedRooms": "BOOKED ROOMS"
+            },
+            ExpressionAttributeValues: {
+                ":decrement": -numberOfRooms
+            }
+        });
+
+        await docClient.send(updateCommand);
+        console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
+        
+    } catch (error) {
+        console.error('Error decreasing booked rooms:', error);
+        throw error;
+    }
+}

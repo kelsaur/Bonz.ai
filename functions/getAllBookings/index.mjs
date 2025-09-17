@@ -2,28 +2,28 @@ import { docClient } from "../../services/db.mjs";
 import { QueryCommand } from "@aws-sdk/client-dynamodb";
 
 export const handler = async (event) => {
-	try {
-		const command = new QueryCommand({
-			TableName: "HotelBooking",
-			KeyConditionExpression: "pk = :pk", //placeholders
-			ExpressionAttributeValues: {
-				//define placeholders
-				":pk": { S: `BOOKING#` },
-			},
-		});
+    try {
+        const command = new QueryCommand({
+            TableName: "HotelBooking",
+            KeyConditionExpression: "pk = :pk", //placeholders
+            ExpressionAttributeValues: {
+                //define placeholders
+                ":pk": "BOOKING#",
+            },
+        });
 
-		const result = await docClient.send(command);
-		const totalBookings = result.Count;
+        const result = await docClient.send(command);
+        const totalBookings = result.Count;
 
-		const bookings = result.Items.map((item) => ({
-			bookingId: item.bookingId.S,
-			guestName: item.guestName.S,
-			checkIn: item.checkIn.S,
-			checkOut: item.checkOut.S,
-			guestCount: parseInt(item.guestCount.N),
-			roomType: JSON.parse(item.roomType.S),
-			totalPrice: parseInt(item.totalPrice.N),
-		}));
+        const bookings = result.Items.map((item) => ({
+            bookingId: item.bookingId,
+            guestName: item.guestName,
+            checkIn: item.checkIn,
+            checkOut: item.checkOut,
+            guestCount: parseInt(item.guestCount),
+            roomType: JSON.parse(item.roomType),
+            totalPrice: parseInt(item.totalPrice),
+        }));
 
 		if (bookings.length === 0) {
 			return {
