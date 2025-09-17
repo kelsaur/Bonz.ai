@@ -2,19 +2,22 @@ import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { docClient, TABLE_NAME } from '../../services/db.mjs';
 
+const CORS_HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+};
+
 export const handler = async (event) => {
     try {
         const body = JSON.parse(event.body);
         
+        // Validera required fields
         const requiredFields = ['guestName', 'guestEmail', 'guestCount', 'roomType', 'numberOfRooms', 'checkIn', 'checkOut'];
         for (const field of requiredFields) {
             if (!body[field]) {
                 return {
                     statusCode: 400,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
+                    headers: CORS_HEADERS,
                     body: JSON.stringify({
                         success: false,
                         message: `Missing required field: ${field}`
@@ -27,10 +30,7 @@ export const handler = async (event) => {
         if (!guestValidation.valid) {
             return {
                 statusCode: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
+                headers: CORS_HEADERS,
                 body: JSON.stringify({
                     success: false,
                     message: guestValidation.message
@@ -38,15 +38,13 @@ export const handler = async (event) => {
             };
         }
 
+        const totalPrice = calculateTotalPrice(body.roomType, body.numberOfRooms, body.checkIn, body.checkOut);
         const roomAvailability = await checkRoomAvailability(body.roomType, body.numberOfRooms);
         
         if (!roomAvailability.available) {
             return {
                 statusCode: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
+                headers: CORS_HEADERS,
                 body: JSON.stringify({
                     success: false,
                     message: roomAvailability.message
@@ -55,7 +53,6 @@ export const handler = async (event) => {
         }
 
         const bookingId = uuidv4();
-
         const booking = {
             PK: "BOOKING#",
             SK: `ID#${bookingId}`,
@@ -66,25 +63,21 @@ export const handler = async (event) => {
             numberOfRooms: body.numberOfRooms,
             checkIn: body.checkIn,
             checkOut: body.checkOut,
+            totalPrice: totalPrice,
             createdAt: new Date().toISOString(),
             status: 'confirmed'
         };
 
-        const command = new PutCommand({
+        await docClient.send(new PutCommand({
             TableName: TABLE_NAME,
             Item: booking 
-        });
-
-        await docClient.send(command);
+        }));
 
         await updateBookedRooms(body.roomType, body.numberOfRooms);
 
         return {
             statusCode: 201,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            headers: CORS_HEADERS,
             body: JSON.stringify({
                 success: true,
                 message: 'Booking created successfully',
@@ -97,10 +90,7 @@ export const handler = async (event) => {
         
         return {
             statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            headers: CORS_HEADERS,
             body: JSON.stringify({
                 success: false,
                 message: 'Failed to create booking',
@@ -110,13 +100,33 @@ export const handler = async (event) => {
     }
 };
 
-function validateGuestCapacity(roomType, guestCount) {
-    const roomCapacities = {
-        'enkel': 1,
-        'dubbel': 2,
-        'svit': 3
-    };
+function calculateTotalPrice(roomType, numberOfRooms, checkIn, checkOut) {
+    const roomPrices = { 'enkel': 500, 'dubbel': 1000, 'svit': 1500 };
+    const pricePerNight = roomPrices[roomType.toLowerCase()];
+    
+    if (!pricePerNight) {
+        throw new Error(`Unknown room type: ${roomType}`);
+    }
+    
+    const nights = calculateNights(checkIn, checkOut);
+    
+    if (nights <= 0) {
+        throw new Error('Invalid date range: checkout must be after checkin');
+    }
+    
+    return pricePerNight * numberOfRooms * nights;
+}
 
+// Behåll denna för kompatibilitet med andra funktioner
+function calculateNights(checkIn, checkOut) {
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const timeDifference = checkOutDate.getTime() - checkInDate.getTime();
+    return Math.ceil(timeDifference / (1000 * 3600 * 24));
+}
+
+function validateGuestCapacity(roomType, guestCount) {
+    const roomCapacities = { 'enkel': 1, 'dubbel': 2, 'svit': 3 };
     const maxCapacity = roomCapacities[roomType.toLowerCase()];
     
     if (!maxCapacity) {
@@ -140,45 +150,32 @@ function validateGuestCapacity(roomType, guestCount) {
 }
 
 async function updateBookedRooms(roomType, numberOfRooms) {
-    try {
-        const updateCommand = new UpdateCommand({
-            TableName: TABLE_NAME,
-            Key: {
-                PK: `ROOM#${roomType.toUpperCase()}`,
-                SK: "META"
-            },
-            UpdateExpression: "ADD #bookedRooms :increment",
-            ExpressionAttributeNames: {
-                "#bookedRooms": "BOOKED ROOMS"
-            },
-            ExpressionAttributeValues: {
-                ":increment": numberOfRooms
-            }
-        });
-
-        await docClient.send(updateCommand);
-        console.log(`Updated BOOKED ROOMS for ${roomType} by +${numberOfRooms}`);
-        
-    } catch (error) {
-        console.error('Error updating booked rooms:', error);
-        throw error;
-    }
+    await docClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `ROOM#${roomType.toUpperCase()}`,
+            SK: "META"
+        },
+        UpdateExpression: "ADD #bookedRooms :increment",
+        ExpressionAttributeNames: {
+            "#bookedRooms": "BOOKED ROOMS"
+        },
+        ExpressionAttributeValues: {
+            ":increment": numberOfRooms
+        }
+    }));
 }
 
 async function checkRoomAvailability(roomType, requestedRooms) {
     try {
-        console.log('Checking availability for roomType:', roomType);
-        
-        const roomQuery = new QueryCommand({
+        const roomResult = await docClient.send(new QueryCommand({
             TableName: TABLE_NAME,
             KeyConditionExpression: "PK = :pk AND SK = :sk",
             ExpressionAttributeValues: {
                 ":pk": `ROOM#${roomType.toUpperCase()}`,
                 ":sk": "META"
             }
-        });
-
-        const roomResult = await docClient.send(roomQuery);
+        }));
         
         if (!roomResult.Items || roomResult.Items.length === 0) {
             return {
@@ -190,15 +187,13 @@ async function checkRoomAvailability(roomType, requestedRooms) {
         const room = roomResult.Items[0];
         const totalRooms = room['TOTAL ROOMS'];
 
-        const allBookingsQuery = new QueryCommand({
+        const allBookingsResult = await docClient.send(new QueryCommand({
             TableName: TABLE_NAME,
             KeyConditionExpression: "PK = :pk",
             ExpressionAttributeValues: {
                 ":pk": "BOOKING#"
             }
-        });
-
-        const allBookingsResult = await docClient.send(allBookingsQuery);
+        }));
         
         let currentlyBookedRooms = 0;
         if (allBookingsResult.Items) {
@@ -210,8 +205,6 @@ async function checkRoomAvailability(roomType, requestedRooms) {
                 return total + parseInt(booking.numberOfRooms || 0);
             }, 0);
         }
-
-        console.log(`Room type: ${roomType}, Total: ${totalRooms}, Currently booked: ${currentlyBookedRooms}, Requested: ${requestedRooms}`);
 
         if (currentlyBookedRooms + requestedRooms > totalRooms) {
             return {

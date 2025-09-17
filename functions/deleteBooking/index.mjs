@@ -1,6 +1,11 @@
 import { DeleteCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from '../../services/db.mjs';
 
+const CORS_HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+};
+
 export const handler = async (event) => {
     try {
         const bookingId = event.pathParameters?.bookingId;
@@ -8,10 +13,7 @@ export const handler = async (event) => {
         if (!bookingId) {
             return {
                 statusCode: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
+                headers: CORS_HEADERS,
                 body: JSON.stringify({
                     success: false,
                     message: 'Booking ID is required'
@@ -19,23 +21,18 @@ export const handler = async (event) => {
             };
         }
 
-        const getCommand = new GetCommand({
+        const getResult = await docClient.send(new GetCommand({
             TableName: TABLE_NAME,
             Key: {
                 PK: "BOOKING#",
                 SK: `ID#${bookingId}`
             }
-        });
-
-        const getResult = await docClient.send(getCommand);
+        }));
         
         if (!getResult.Item) {
             return {
                 statusCode: 404,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
+                headers: CORS_HEADERS,
                 body: JSON.stringify({
                     success: false,
                     message: 'Booking not found'
@@ -44,33 +41,26 @@ export const handler = async (event) => {
         }
 
         const booking = getResult.Item;
-        const roomType = booking.roomType;
-        const numberOfRooms = booking.numberOfRooms;
-        const guestCount = booking.guestCount;
+        const { roomType, numberOfRooms, guestCount } = booking;
 
         const guestValidation = validateGuestCapacity(roomType, guestCount);
         if (!guestValidation.valid) {
             console.warn(`Deleting invalid booking: ${guestValidation.message}`);
         }
 
-        const deleteCommand = new DeleteCommand({
+        await docClient.send(new DeleteCommand({
             TableName: TABLE_NAME,
             Key: {
                 PK: "BOOKING#",
                 SK: `ID#${bookingId}`
             }
-        });
-
-        await docClient.send(deleteCommand);
+        }));
 
         await decreaseBookedRooms(roomType, numberOfRooms);
 
         return {
             statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            headers: CORS_HEADERS,
             body: JSON.stringify({
                 success: true,
                 message: 'Booking deleted successfully',
@@ -84,10 +74,7 @@ export const handler = async (event) => {
         
         return {
             statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            headers: CORS_HEADERS,
             body: JSON.stringify({
                 success: false,
                 message: 'Failed to delete booking',
@@ -127,27 +114,19 @@ function validateGuestCapacity(roomType, guestCount) {
 }
 
 async function decreaseBookedRooms(roomType, numberOfRooms) {
-    try {
-        const updateCommand = new UpdateCommand({
-            TableName: TABLE_NAME,
-            Key: {
-                PK: `ROOM#${roomType.toUpperCase()}`,
-                SK: "META"
-            },
-            UpdateExpression: "ADD #bookedRooms :decrement",
-            ExpressionAttributeNames: {
-                "#bookedRooms": "BOOKED ROOMS"
-            },
-            ExpressionAttributeValues: {
-                ":decrement": -numberOfRooms 
-            }
-        });
-
-        await docClient.send(updateCommand);
-        console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
-        
-    } catch (error) {
-        console.error('Error decreasing booked rooms:', error);
-        throw error;
-    }
+    await docClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `ROOM#${roomType.toUpperCase()}`,
+            SK: "META"
+        },
+        UpdateExpression: "ADD #bookedRooms :decrement",
+        ExpressionAttributeNames: {
+            "#bookedRooms": "BOOKED ROOMS"
+        },
+        ExpressionAttributeValues: {
+            ":decrement": -numberOfRooms
+        }
+    }));
+    console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
 }
