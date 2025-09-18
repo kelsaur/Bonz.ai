@@ -301,5 +301,14 @@ async function checkRoomAvailability(roomType, requestedRooms) {
 			available: false,
 			message: "Error checking room availability",
 		};
-    }
+
+	}
 }
+
+export {
+	calculateNights,
+	validateGuestCapacity,
+	checkRoomAvailability,
+	calculateTotalPrice,
+	updateBookedRooms,
+};
