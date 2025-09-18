@@ -1,8 +1,7 @@
+useDotenv: true 
+
 org: ${env:AWS_ORG}
 service: ${env:AWS_SERVICE}
-
-plugins:
-  - serverless-dotenv-plugin
 
 provider:
   name: aws
@@ -10,6 +9,21 @@ provider:
   region: eu-north-1
   iam:
     role: ${env:AWS_IAM_ROLE}
+  environment:
+    HOTEL_BOOKING_TABLE: HotelBooking
+
+
+iamRoleStatements:
+  - Effect: Allow
+    Action:
+      - dynamodb:Query
+      - dynamodb:Scan
+      - dynamodb:GetItem
+      - dynamodb:PutItem
+      - dynamodb:UpdateItem
+      - dynamodb:DeleteItem
+    Resource:
+      - "arn:aws:dynamodb:${self:provider.region}:*:table/HotelBooking" 
 
 functions:
   createBooking:
@@ -53,20 +67,3 @@ functions:
       - httpApi:
           path: /bookings/{bookingId}
           method: put
-
-  Resources:
-    BookLibraryTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: HotelBooking
-        AttributeDefinitions:
-          - AttributeName: pk
-            AttributeType: S # S står för String som datatyp
-          - AttributeName: sk
-            AttributeType: S
-        KeySchema:
-          - AttributeName: pk
-            KeyType: HASH # HASH = partition key
-          - AttributeName: sk
-            KeyType: RANGE # RANGE = sort key
-        BillingMode: PAY_PER_REQUEST
