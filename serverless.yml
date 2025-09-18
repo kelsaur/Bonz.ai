@@ -67,20 +67,3 @@ functions:
       - httpApi:
           path: /bookings/{bookingId}
           method: put
-
-  Resources:
-    BookLibraryTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: HotelBooking
-        AttributeDefinitions:
-          - AttributeName: pk
-            AttributeType: S # S står för String som datatyp
-          - AttributeName: sk
-            AttributeType: S
-        KeySchema:
-          - AttributeName: pk
-            KeyType: HASH # HASH = partition key
-          - AttributeName: sk
-            KeyType: RANGE # RANGE = sort key
-        BillingMode: PAY_PER_REQUEST

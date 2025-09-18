@@ -12,6 +12,8 @@ export const handler = async (event) => {
 	try {
 		const body = JSON.parse(event.body);
 
+        console.log("Parsed body:", body);
+
 		// Validera required fields
 		const requiredFields = [
 			"guestName",

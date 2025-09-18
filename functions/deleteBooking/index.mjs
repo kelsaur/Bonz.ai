@@ -108,3 +108,4 @@ async function decreaseBookedRooms(roomType, numberOfRooms) {
 		})
 	);
 	console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
+}
