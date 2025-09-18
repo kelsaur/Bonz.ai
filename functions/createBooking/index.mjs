@@ -175,6 +175,7 @@ function calculateTotalPrice(roomTypes, checkIn, checkOut) {
 		total += pricePerNight * room.rooms * nights;
 	}
 	return total;
+}
 
 // Behåll denna för kompatibilitet med andra funktioner
 function calculateNights(checkIn, checkOut) {
@@ -300,4 +301,5 @@ async function checkRoomAvailability(roomType, requestedRooms) {
 			available: false,
 			message: "Error checking room availability",
 		};
-	}
+    }
+}
