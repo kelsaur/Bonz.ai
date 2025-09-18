@@ -49,7 +49,6 @@ export const handler = async (event) => {
 
 		const booking = getResult.Item;
 
-		//decrease for each room in roomTypes array
 		if (Array.isArray(booking.roomTypes)) {
 			for (const room of booking.roomTypes) {
 				await decreaseBookedRooms(room.type, room.rooms);
@@ -108,3 +107,4 @@ async function decreaseBookedRooms(roomType, numberOfRooms) {
 		})
 	);
 	console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
+}

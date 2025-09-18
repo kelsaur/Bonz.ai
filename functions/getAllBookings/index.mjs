@@ -20,7 +20,7 @@ export const handler = async (event) => {
 		});
 
 		const result = await docClient.send(command);
-		const bookingsData = result.Items || []; //in case of no bookings returns empty array instead of undefined
+		const bookingsData = result.Items || [];
 
 		if (bookingsData.length === 0) {
 			return {

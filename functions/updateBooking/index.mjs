@@ -29,7 +29,6 @@ export const handler = async (event) => {
 			};
 		}
 
-		//current booking
 		const oldBookingResult = await docClient.send(
 			new GetCommand({
 				TableName: TABLE_NAME,
@@ -57,14 +56,12 @@ export const handler = async (event) => {
 		let names = {};
 		let values = {};
 
-		//guest count update
 		if (body.guestCount) {
 			names["#guestCount"] = "guestCount";
 			values[":guestCount"] = body.guestCount;
 			updates.push("#guestCount = :guestCount");
 		}
 
-		//check-in update
 		const checkIn = body.checkIn || oldBooking.checkIn;
 		if (body.checkIn) {
 			names["#checkIn"] = "checkIn";
@@ -72,7 +69,6 @@ export const handler = async (event) => {
 			updates.push("#checkIn = :checkIn");
 		}
 
-		//check-out update
 		const checkOut = body.checkOut || oldBooking.checkOut;
 		if (body.checkOut) {
 			names["#checkOut"] = "checkOut";
@@ -80,7 +76,6 @@ export const handler = async (event) => {
 			updates.push("#checkOut = :checkOut");
 		}
 
-		//room types update
 		const newRoomTypes = body.roomTypes;
 		const updateRooms = Array.isArray(newRoomTypes);
 
@@ -138,7 +133,6 @@ export const handler = async (event) => {
 			updates.push("#roomTypes = :roomTypes");
 		}
 
-		//rcalculate totalPrice and nights if dates or rooms changed
 		if (checkIn && checkOut) {
 			const finalRoomTypes = newRoomTypes || oldBooking.roomTypes;
 			const nights = calculateNights(checkIn, checkOut);

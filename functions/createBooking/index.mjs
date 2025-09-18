@@ -12,7 +12,6 @@ export const handler = async (event) => {
 	try {
 		const body = JSON.parse(event.body);
 
-		// Validera required fields
 		const requiredFields = [
 			"guestName",
 			"guestEmail",
@@ -21,7 +20,7 @@ export const handler = async (event) => {
 			"checkIn",
 			"checkOut",
 		];
-		//Check the fields exist in req.body
+
 		for (const field of requiredFields) {
 			if (!body[field]) {
 				return {
@@ -34,7 +33,7 @@ export const handler = async (event) => {
 				};
 			}
 		}
-		//roomTypes field must be an array w at least 1 item
+
 		if (!Array.isArray(body.roomTypes) || body.roomTypes.length === 0) {
 			return {
 				statusCode: 400,
@@ -45,7 +44,7 @@ export const handler = async (event) => {
 				}),
 			};
 		}
-		//array content in roomTypes must include type, rooms, guests
+	
 		for (const room of body.roomTypes) {
 			if (!room.type || !room.rooms || !room.guests) {
 				return {
@@ -58,7 +57,7 @@ export const handler = async (event) => {
 				};
 			}
 		}
-		//not more guests than maxGuestsAccepted can be booked
+	
 		for (const room of body.roomTypes) {
 			const guestValidation = validateGuestCapacity(
 				room.type,
@@ -76,7 +75,7 @@ export const handler = async (event) => {
 				};
 			}
 		}
-		//enough rooms must be available for booking
+	
 		for (const room of body.roomTypes) {
 			const roomAvailability = await checkRoomAvailability(
 				room.type,
@@ -177,7 +176,6 @@ function calculateTotalPrice(roomTypes, checkIn, checkOut) {
 	return total;
 }
 
-// Behåll denna för kompatibilitet med andra funktioner
 function calculateNights(checkIn, checkOut) {
 
 	const checkInDate = new Date(checkIn);
@@ -233,7 +231,7 @@ async function updateBookedRooms(roomType, numberOfRooms) {
 
 async function checkRoomAvailability(roomType, requestedRooms) {
 	try {
-		//fetch data of room type
+	
 		const roomResult = await docClient.send(
 			new QueryCommand({
 				TableName: TABLE_NAME,
@@ -255,7 +253,6 @@ async function checkRoomAvailability(roomType, requestedRooms) {
 		const room = roomResult.Items[0];
 		const totalRooms = room["TOTAL ROOMS"];
 
-		//fetch data of all bookings
 		const allBookingsResult = await docClient.send(
 			new QueryCommand({
 				TableName: TABLE_NAME,
@@ -267,12 +264,12 @@ async function checkRoomAvailability(roomType, requestedRooms) {
 		);
 
 		let currentlyBookedRooms = 0;
-		//look at confirmed bookings that have roomTypes array and include current room type
+	
 		if (allBookingsResult.Items) {
 			const confirmedBookings = allBookingsResult.Items.filter(
 				(booking) =>
 					booking.status === "confirmed" &&
-					Array.isArray(booking.roomTypes) && //for validating data inserted in previous verions (before array possibility)
+					Array.isArray(booking.roomTypes) && 
 					booking.roomTypes.some((r) => r.type === roomType)
 			);
 
