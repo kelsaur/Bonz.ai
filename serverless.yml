@@ -1,8 +1,7 @@
+useDotenv: true 
+
 org: ${env:AWS_ORG}
 service: ${env:AWS_SERVICE}
-
-plugins:
-  - serverless-dotenv-plugin
 
 provider:
   name: aws
