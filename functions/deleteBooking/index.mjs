@@ -1,132 +1,110 @@
-import { DeleteCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { docClient, TABLE_NAME } from '../../services/db.mjs';
+import {
+	DeleteCommand,
+	GetCommand,
+	UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import { docClient, TABLE_NAME } from "../../services/db.mjs";
 
 const CORS_HEADERS = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
+	"Content-Type": "application/json",
+	"Access-Control-Allow-Origin": "*",
 };
 
 export const handler = async (event) => {
-    try {
-        const bookingId = event.pathParameters?.bookingId;
-        
-        if (!bookingId) {
-            return {
-                statusCode: 400,
-                headers: CORS_HEADERS,
-                body: JSON.stringify({
-                    success: false,
-                    message: 'Booking ID is required'
-                })
-            };
-        }
 
-        const getResult = await docClient.send(new GetCommand({
-            TableName: TABLE_NAME,
-            Key: {
-                PK: "BOOKING#",
-                SK: `ID#${bookingId}`
-            }
-        }));
-        
-        if (!getResult.Item) {
-            return {
-                statusCode: 404,
-                headers: CORS_HEADERS,
-                body: JSON.stringify({
-                    success: false,
-                    message: 'Booking not found'
-                })
-            };
-        }
+	try {
+		const bookingId = event.pathParameters?.bookingId;
 
-        const booking = getResult.Item;
-        const { roomType, numberOfRooms, guestCount } = booking;
+		if (!bookingId) {
+			return {
+				statusCode: 400,
+				headers: CORS_HEADERS,
+				body: JSON.stringify({
+					success: false,
+					message: "Booking ID is required",
+				}),
+			};
+		}
 
-        const guestValidation = validateGuestCapacity(roomType, guestCount);
-        if (!guestValidation.valid) {
-            console.warn(`Deleting invalid booking: ${guestValidation.message}`);
-        }
+		const getResult = await docClient.send(
+			new GetCommand({
+				TableName: TABLE_NAME,
+				Key: {
+					PK: "BOOKING#",
+					SK: `ID#${bookingId}`,
+				},
+			})
+		);
 
-        await docClient.send(new DeleteCommand({
-            TableName: TABLE_NAME,
-            Key: {
-                PK: "BOOKING#",
-                SK: `ID#${bookingId}`
-            }
-        }));
+		if (!getResult.Item) {
+			return {
+				statusCode: 404,
+				headers: CORS_HEADERS,
+				body: JSON.stringify({
+					success: false,
+					message: "Booking not found",
+				}),
+			};
+		}
 
-        await decreaseBookedRooms(roomType, numberOfRooms);
+		const booking = getResult.Item;
 
-        return {
-            statusCode: 200,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({
-                success: true,
-                message: 'Booking deleted successfully',
-                deletedBooking: booking,
-                guestValidation: guestValidation.valid ? 'Valid booking' : `Invalid booking: ${guestValidation.message}`
-            })
-        };
+		//decrease for each room in roomTypes array
+		if (Array.isArray(booking.roomTypes)) {
+			for (const room of booking.roomTypes) {
+				await decreaseBookedRooms(room.type, room.rooms);
+			}
+		}
 
-    } catch (error) {
-        console.error('Error deleting booking:', error);
-        
-        return {
-            statusCode: 500,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({
-                success: false,
-                message: 'Failed to delete booking',
-                error: error.message
-            })
-        };
-    }
+		await docClient.send(
+			new DeleteCommand({
+				TableName: TABLE_NAME,
+				Key: {
+					PK: "BOOKING#",
+					SK: `ID#${bookingId}`,
+				},
+			})
+		);
+
+		return {
+			statusCode: 200,
+			headers: CORS_HEADERS,
+			body: JSON.stringify({
+				success: true,
+				message: "Booking deleted successfully",
+				deletedBooking: booking,
+			}),
+		};
+	} catch (error) {
+		console.error("Error deleting booking:", error);
+
+		return {
+			statusCode: 500,
+			headers: CORS_HEADERS,
+			body: JSON.stringify({
+				success: false,
+				message: "Failed to delete booking",
+				error: error.message,
+			}),
+		};
+	}
 };
 
-function validateGuestCapacity(roomType, guestCount) {
-    const roomCapacities = {
-        'enkel': 1,
-        'dubbel': 2,
-        'svit': 3
-    };
-
-    const maxCapacity = roomCapacities[roomType.toLowerCase()];
-    
-    if (!maxCapacity) {
-        return {
-            valid: false,
-            message: `Unknown room type: ${roomType}`
-        };
-    }
-
-    if (guestCount > maxCapacity) {
-        return {
-            valid: false,
-            message: `Too many guests for ${roomType} room. Maximum capacity: ${maxCapacity}, actual: ${guestCount}`
-        };
-    }
-
-    return {
-        valid: true,
-        message: 'Guest count is valid'
-    };
-}
-
 async function decreaseBookedRooms(roomType, numberOfRooms) {
-    await docClient.send(new UpdateCommand({
-        TableName: TABLE_NAME,
-        Key: {
-            PK: `ROOM#${roomType.toUpperCase()}`,
-            SK: "META"
-        },
-        UpdateExpression: "ADD #bookedRooms :decrement",
-        ExpressionAttributeNames: {
-            "#bookedRooms": "BOOKED ROOMS"
-        },
-        ExpressionAttributeValues: {
-            ":decrement": -numberOfRooms
-        }
-    }));
-    console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
-}
+	await docClient.send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: {
+				PK: `ROOM#${roomType.toUpperCase()}`,
+				SK: "META",
+			},
+			UpdateExpression: "ADD #bookedRooms :decrement",
+			ExpressionAttributeNames: {
+				"#bookedRooms": "BOOKED ROOMS",
+			},
+			ExpressionAttributeValues: {
+				":decrement": -numberOfRooms,
+			},
+		})
+	);
+	console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
