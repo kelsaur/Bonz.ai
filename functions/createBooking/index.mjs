@@ -301,3 +301,11 @@ async function checkRoomAvailability(roomType, requestedRooms) {
 		};
 	}
 }
+
+export {
+	calculateNights,
+	validateGuestCapacity,
+	checkRoomAvailability,
+	calculateTotalPrice,
+	updateBookedRooms,
+};

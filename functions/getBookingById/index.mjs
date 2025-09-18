@@ -64,6 +64,7 @@ export const handler = async (event) => {
 					"Check In": formatDate(result.Item.checkIn),
 					"Check Out": formatDate(result.Item.checkOut),
 					"Booking Status": result.Item.status,
+					"Total Price": result.Item.totalPrice,
 					"Created At": formatDate(result.Item.createdAt),
 				},
 			}),
