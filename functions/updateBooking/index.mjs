@@ -36,10 +36,8 @@ export const handler = async (event) => {
         if (!oldBookingResult.Item){
             return{
                 statusCode:404,
-                headers:{
-                    'Content-Type':'application/json',
-                    'Access-Control-Allow-Origin':'*'
-                },body:JSON.stringify({
+                headers:CORS_HEADERS,
+                body:JSON.stringify({
                     success:false,
                     message:"Booking not found"
                 }),
