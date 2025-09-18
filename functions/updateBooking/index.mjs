@@ -103,6 +103,9 @@ export const handler = async (event) => {
                 };
             }
         
+        // calculate new total price
+        const newTotalPrice = calculateTotalPrice(newRoomTypes, newCheckIn, newCheckOut);
+
         // UPDATE BOOKING ITEM
        let updateExpression='SET ';
        const expressionAttributeNames={};
@@ -140,26 +143,24 @@ export const handler = async (event) => {
         
 
         // update bookedRooms counters
-        for (const oldRoom of oldBooking.roomTypes){
-            const newRoom=newRoomTypes.find((r)=>r.type===oldRoom.type);
-            const newRooms=newRoom ? newRoom.rooms :0;
-            const deltaRooms=newRooms-oldRoom.rooms;
+        for (const newRoom of newRoomTypes){
+            const oldRoom=oldBooking.roomTypes.find((r)=>r.type===newRoom.type);
+            const oldRooms=oldRoom ? oldRoom.rooms :0;
+            const deltaRooms=newRoom.rooms-oldRooms;
 
             if (deltaRooms!==0){
                 await docClient.send(new UpdateCommand({
                     TableName:TABLE_NAME,
                     Key:{
-                        PK:`ROOM#${oldRoom.type.toUpperCase()}`,
+                        PK:`ROOM#${newRoom.type.toUpperCase()}`,
                         SK:"META"
                     },
                     UpdateExpression:"SET #bookedRooms=#bookedRooms+:num",
                     ExpressionAttributeNames:{
                         "#bookedRooms":"BOOKED ROOMS",
-                        "#totalRooms": "TOTAL ROOMS",
                     },
                     ExpressionAttributeValues:{
                         ":num":deltaRooms,
-                        ":zero":0,
                     },
                 }));
             }
@@ -211,3 +212,33 @@ export const handler = async (event) => {
         };
     }
 };
+
+// functions of calculate total price and nights from createBooking
+
+function calculateTotalPrice(roomTypes, checkIn, checkOut) {
+	const roomPrices = { enkel: 500, dubbel: 1000, svit: 1500 };
+	const nights = calculateNights(checkIn, checkOut);
+
+	if (nights <= 0) {
+		throw new Error("Invalid date range: checkout must be after checkin");
+	}
+
+	let total = 0;
+
+	for (const room of roomTypes) {
+		const pricePerNight = roomPrices[room.type.toLowerCase()];
+		if (!pricePerNight) {
+			throw new Error(`Unknown room type: ${room.type}`);
+		}
+		total += pricePerNight * room.rooms * nights;
+	}
+	return total;
+}
+
+// Behåll denna för kompatibilitet med andra funktioner
+function calculateNights(checkIn, checkOut) {
+	const checkInDate = new Date(checkIn);
+	const checkOutDate = new Date(checkOut);
+	const timeDifference = checkOutDate.getTime() - checkInDate.getTime();
+	return Math.ceil(timeDifference / (1000 * 3600 * 24));
+}
