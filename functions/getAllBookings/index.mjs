@@ -2,6 +2,7 @@ import { docClient } from "../../services/db.mjs";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 export const handler = async (event) => {
+
 	try {
 		const formatDate = (dateStr) =>
 			new Date(dateStr).toLocaleDateString("en-GB");

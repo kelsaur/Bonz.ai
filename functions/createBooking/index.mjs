@@ -8,6 +8,7 @@ const CORS_HEADERS = {
 };
 
 export const handler = async (event) => {
+
 	try {
 		const body = JSON.parse(event.body);
 
@@ -178,6 +179,7 @@ function calculateTotalPrice(roomTypes, checkIn, checkOut) {
 
 // Behåll denna för kompatibilitet med andra funktioner
 function calculateNights(checkIn, checkOut) {
+
 	const checkInDate = new Date(checkIn);
 	const checkOutDate = new Date(checkOut);
 	const timeDifference = checkOutDate.getTime() - checkInDate.getTime();
@@ -299,6 +301,7 @@ async function checkRoomAvailability(roomType, requestedRooms) {
 			available: false,
 			message: "Error checking room availability",
 		};
+
 	}
 }
 

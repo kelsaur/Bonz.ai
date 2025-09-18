@@ -11,6 +11,7 @@ const CORS_HEADERS = {
 };
 
 export const handler = async (event) => {
+
 	try {
 		const bookingId = event.pathParameters?.bookingId;
 
@@ -107,4 +108,3 @@ async function decreaseBookedRooms(roomType, numberOfRooms) {
 		})
 	);
 	console.log(`Decreased BOOKED ROOMS for ${roomType} by -${numberOfRooms}`);
-}
