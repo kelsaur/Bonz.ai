@@ -2,6 +2,8 @@
 
 Hotel booking API built using the Serverless Framework (AWS Lambda, API Gateway, and DynamoDB).
 
+[Presentation](https://funet-my.sharepoint.com/:v:/g/personal/3ggjs24lundca_folkuniversitetet_nu/EZ3Q2HbPIphLp8ERJ5dYoJkBEpLEKs0hYbY2REeUiS2csA?e=9BB6Fw)
+
 👥 Built by Ruby Knights
 
 # Setup & Installation
